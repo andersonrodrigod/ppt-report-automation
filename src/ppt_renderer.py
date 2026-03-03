@@ -18,7 +18,7 @@ from .models import SheetTable
 
 EMU_PER_INCH = 914400
 EMU_PER_PX = 9525
-TITLE_P1 = "SINAIS DE COMPLICACAO | RESULTADO POR ESTADO"
+TITLE_P1 = "SINAIS DE COMPLICA\u00C7\u00C3O | RESULTADO POR ESTADO"
 TITLE_P3 = "ORIENTACOES DO CUIDADO POS CIRURGICO | RESULTADO POR ESTADO"
 
 
@@ -81,13 +81,26 @@ def _find_primary_general_sheet(sheet_names: list[str]) -> str:
 def _set_slide_title(slide, text: str, slide_w: int, title_h: int, assets_dir: Path) -> None:
     side_margin = int(slide_w * 0.03)
 
-    text_left = side_margin + int(slide_w * 0.03)
+    inicio_path = assets_dir.parent / "imgs" / "inicio.jpg"
+    if not inicio_path.exists():
+        inicio_path = assets_dir / "inicio.jpg"
+
+    inicio_h = int(title_h * 0.70)
+    inicio_w = int(inicio_h * (159 / 681))
+    inicio_x = side_margin
+    inicio_y = int((title_h - inicio_h) / 2)
+    if inicio_path.exists():
+        slide.shapes.add_picture(str(inicio_path), inicio_x, inicio_y, width=inicio_w, height=inicio_h)
+
+    text_gap = int(20 * EMU_PER_PX)
+    text_left = inicio_x + inicio_w + text_gap
     text_top = int(title_h * 0.08)
-    text_w = int(slide_w * 0.75)
+    text_w = int(slide_w - text_left - side_margin - int(slide_w * 0.10))
     text_h = int(title_h * 0.84)
     box = slide.shapes.add_textbox(text_left, text_top, text_w, text_h)
     tf = box.text_frame
     tf.clear()
+    tf.word_wrap = False
     p = tf.paragraphs[0]
     p.alignment = PP_ALIGN.LEFT
     run = p.add_run()
@@ -95,15 +108,7 @@ def _set_slide_title(slide, text: str, slide_w: int, title_h: int, assets_dir: P
     run.font.bold = False
     run.font.name = "Calibri Light"
     run.font.color.rgb = RGBColor(32, 56, 100)
-    run.font.size = Pt(24)
-
-    inicio_path = assets_dir / "inicio.jpg"
-    inicio_w = int(slide_w * 0.012)
-    inicio_h = int(title_h * 0.60)
-    inicio_x = side_margin
-    inicio_y = int(text_top + (text_h - inicio_h) / 2)
-    if inicio_path.exists():
-        slide.shapes.add_picture(str(inicio_path), inicio_x, inicio_y, width=inicio_w, height=inicio_h)
+    run.font.size = Pt(26)
 
     logo_path = assets_dir / "logo.jpg"
     logo_w = int(slide_w * 0.045)
@@ -111,6 +116,47 @@ def _set_slide_title(slide, text: str, slide_w: int, title_h: int, assets_dir: P
     logo_y = int(title_h * 0.12)
     if logo_path.exists():
         slide.shapes.add_picture(str(logo_path), logo_x, logo_y, width=logo_w)
+
+
+def _align_header_to_section_titles(prs: Presentation, slide_w: int) -> None:
+    for slide in prs.slides:
+        main_title = None
+        section_tops: list[int] = []
+        section_labels: list[str] = []
+        left_image = None
+        left_candidates = []
+
+        for shape in slide.shapes:
+            if shape.shape_type == 17 and shape.has_text_frame:
+                txt = shape.text_frame.text.strip()
+                if not txt:
+                    continue
+                if "RESULTADO POR ESTADO" in txt:
+                    main_title = shape
+                else:
+                    section_tops.append(int(shape.top))
+                    section_labels.append(txt.upper())
+            if (
+                shape.shape_type == 13
+                and shape.left <= int(slide_w * 0.08)
+                and shape.width <= int(slide_w * 0.05)
+            ):
+                left_candidates.append(shape)
+
+        if left_candidates:
+            left_image = min(left_candidates, key=lambda shp: shp.width)
+
+        if main_title is None or left_image is None:
+            continue
+
+        if section_tops:
+            section_top = min(section_tops)
+            center_y = int(section_top / 2)
+            left_image.top = max(0, center_y - int(left_image.height / 2))
+
+        image_center_y = int(left_image.top + (left_image.height / 2))
+        title_down_offset = int(main_title.height * 0.30)
+        main_title.top = max(0, image_center_y - int(main_title.height / 2) + title_down_offset)
 
 
 def _column_weights(headers: list[str], rows: list[list[object]]) -> list[float]:
@@ -273,23 +319,24 @@ def _add_table_block(
     table_h = _table_height_with_row_cap(available_table_h, row_count, slide_h)
     table_top += int((available_table_h - table_h) / 2)
 
-    title_gap = int(12 * EMU_PER_PX)
-    title_h_visual = int(30 * EMU_PER_PX)
-    title_top = max(0, table_top - title_gap - title_h_visual)
-    title_box = slide.shapes.add_textbox(block_left, title_top, block_w, title_h_visual)
-    tf = title_box.text_frame
-    tf.clear()
-    tf.margin_left = int(5 * EMU_PER_PX)
-    tf.margin_right = 0
-    tf.margin_top = 0
-    tf.margin_bottom = 0
-    p = tf.paragraphs[0]
-    p.alignment = PP_ALIGN.LEFT
-    run = p.add_run()
-    run.text = table_data.display_name
-    run.font.bold = True
-    run.font.color.rgb = RGBColor(31, 56, 100)
-    run.font.size = Pt(20)
+    if table_data.display_name.strip().upper() != "GERAL":
+        title_gap = int(12 * EMU_PER_PX)
+        title_h_visual = int(30 * EMU_PER_PX)
+        title_top = max(0, table_top - title_gap - title_h_visual)
+        title_box = slide.shapes.add_textbox(block_left, title_top, block_w, title_h_visual)
+        tf = title_box.text_frame
+        tf.clear()
+        tf.margin_left = int(50 * EMU_PER_PX)
+        tf.margin_right = 0
+        tf.margin_top = 0
+        tf.margin_bottom = 0
+        p = tf.paragraphs[0]
+        p.alignment = PP_ALIGN.LEFT
+        run = p.add_run()
+        run.text = table_data.display_name
+        run.font.bold = True
+        run.font.color.rgb = RGBColor(31, 56, 100)
+        run.font.size = Pt(20)
 
     width_in = _emu_to_inches(block_w)
     height_in = _emu_to_inches(table_h)
@@ -563,6 +610,7 @@ def gerar_ppt(
                 _add_table_block(slide, tables_by_sheet[sheet_name], x, y, grid_panel_w, grid_panel_h, slide_h)
 
         _add_requested_pies(prs, slide_w=slide_w, slide_h=slide_h, contagens_sim_nao=contagens_sim_nao)
+        _align_header_to_section_titles(prs, slide_w=slide_w)
         prs.save(arquivo_saida)
         return
 
@@ -600,5 +648,5 @@ def gerar_ppt(
         i += 2 if right_name is not None else 1
 
     _add_requested_pies(prs, slide_w=slide_w, slide_h=slide_h, contagens_sim_nao=contagens_sim_nao)
+    _align_header_to_section_titles(prs, slide_w=slide_w)
     prs.save(arquivo_saida)
-
