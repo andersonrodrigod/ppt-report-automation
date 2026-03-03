@@ -18,6 +18,7 @@ from .models import SheetTable
 
 EMU_PER_INCH = 914400
 EMU_PER_PX = 9525
+DEFAULT_HEADER_LAYOUT_GAP_PX = 24
 TITLE_P1 = "SINAIS DE COMPLICA\u00C7\u00C3O | RESULTADO POR ESTADO"
 TITLE_P3 = "ORIENTACOES DO CUIDADO POS CIRURGICO | RESULTADO POR ESTADO"
 
@@ -110,53 +111,17 @@ def _set_slide_title(slide, text: str, slide_w: int, title_h: int, assets_dir: P
     run.font.color.rgb = RGBColor(32, 56, 100)
     run.font.size = Pt(26)
 
-    logo_path = assets_dir / "logo.jpg"
-    logo_w = int(slide_w * 0.045)
-    logo_x = int(slide_w - side_margin - logo_w)
-    logo_y = int(title_h * 0.12)
+    logo_path = assets_dir.parent / "imgs" / "logo.jpg"
+    if not logo_path.exists():
+        logo_path = assets_dir / "logo.jpg"
+    logo_w = int(50 * EMU_PER_PX)
+    logo_h = int(50 * EMU_PER_PX)
+    logo_padding_right = int(25 * EMU_PER_PX)
+    logo_padding_top = int(25 * EMU_PER_PX)
+    logo_x = int(slide_w - logo_w - logo_padding_right)
+    logo_y = logo_padding_top
     if logo_path.exists():
-        slide.shapes.add_picture(str(logo_path), logo_x, logo_y, width=logo_w)
-
-
-def _align_header_to_section_titles(prs: Presentation, slide_w: int) -> None:
-    for slide in prs.slides:
-        main_title = None
-        section_tops: list[int] = []
-        section_labels: list[str] = []
-        left_image = None
-        left_candidates = []
-
-        for shape in slide.shapes:
-            if shape.shape_type == 17 and shape.has_text_frame:
-                txt = shape.text_frame.text.strip()
-                if not txt:
-                    continue
-                if "RESULTADO POR ESTADO" in txt:
-                    main_title = shape
-                else:
-                    section_tops.append(int(shape.top))
-                    section_labels.append(txt.upper())
-            if (
-                shape.shape_type == 13
-                and shape.left <= int(slide_w * 0.08)
-                and shape.width <= int(slide_w * 0.05)
-            ):
-                left_candidates.append(shape)
-
-        if left_candidates:
-            left_image = min(left_candidates, key=lambda shp: shp.width)
-
-        if main_title is None or left_image is None:
-            continue
-
-        if section_tops:
-            section_top = min(section_tops)
-            center_y = int(section_top / 2)
-            left_image.top = max(0, center_y - int(left_image.height / 2))
-
-        image_center_y = int(left_image.top + (left_image.height / 2))
-        title_down_offset = int(main_title.height * 0.30)
-        main_title.top = max(0, image_center_y - int(main_title.height / 2) + title_down_offset)
+        slide.shapes.add_picture(str(logo_path), logo_x, logo_y, width=logo_w, height=logo_h)
 
 
 def _column_weights(headers: list[str], rows: list[list[object]]) -> list[float]:
@@ -468,6 +433,7 @@ def _add_requested_pies(
     slide_w: int,
     slide_h: int,
     contagens_sim_nao: dict[str, dict[str, int]] | None,
+    header_layout_gap_emu: int,
 ) -> None:
     if not contagens_sim_nao:
         return
@@ -476,9 +442,9 @@ def _add_requested_pies(
     outer_margin = int(slide_w * 0.04)
     center_gap = int(slide_w * 0.03)
     panel_w = int((slide_w - (2 * outer_margin) - center_gap) / 2)
-    available_h = slide_h - page_title_h
+    available_h = slide_h - page_title_h - header_layout_gap_emu
     panel_h = int(available_h * 0.78)
-    panel_top = page_title_h + int((available_h - panel_h) / 2)
+    panel_top = page_title_h + header_layout_gap_emu + int((available_h - panel_h) / 2)
     left_x = outer_margin
     right_x = outer_margin + panel_w + center_gap
 
@@ -523,6 +489,7 @@ def gerar_ppt(
     assets_dir: str,
     layout_mode: str = "paired",
     contagens_sim_nao: dict[str, dict[str, int]] | None = None,
+    header_layout_gap_px: int = DEFAULT_HEADER_LAYOUT_GAP_PX,
 ) -> None:
     assets_path = Path(assets_dir)
     primary_general = _find_primary_general_sheet(ordered_names)
@@ -532,6 +499,7 @@ def gerar_ppt(
     prs.slide_height = _inches_to_emu(7.5)
     slide_w = prs.slide_width
     slide_h = prs.slide_height
+    header_layout_gap_emu = int(max(0, header_layout_gap_px) * EMU_PER_PX)
 
     prs.slides.add_slide(prs.slide_layouts[6])
     prs.slides.add_slide(prs.slide_layouts[6])
@@ -549,15 +517,15 @@ def gerar_ppt(
 
     block_left = right_half_left + right_internal_margin
     block_w = right_half_w - right_margin - right_internal_margin
-    block_top = top_title_h
-    block_h = slide_h - top_title_h - bottom_visible_gap
+    block_top = top_title_h + header_layout_gap_emu
+    block_h = slide_h - top_title_h - header_layout_gap_emu - bottom_visible_gap
     _add_table_block(
         geral_slide, tables_by_sheet[primary_general], block_left, block_top, block_w, block_h, slide_h, table_title_h=table_title_band_h
     )
 
     remaining_names = [name for name in ordered_names if name != primary_general]
     page_title_h = int(slide_h * 0.20)
-    panel_top = page_title_h
+    panel_top = page_title_h + header_layout_gap_emu
 
     single_right_half_left = int(slide_w * 0.50)
     single_right_half_w = int(slide_w * 0.50)
@@ -567,8 +535,8 @@ def gerar_ppt(
     single_bottom_visible_gap = int(slide_h * 0.08)
     single_block_left = single_right_half_left + single_right_internal_margin
     single_block_w = single_right_half_w - single_right_margin - single_right_internal_margin
-    single_block_top = page_title_h
-    single_block_h = slide_h - page_title_h - single_bottom_visible_gap
+    single_block_top = page_title_h + header_layout_gap_emu
+    single_block_h = slide_h - page_title_h - header_layout_gap_emu - single_bottom_visible_gap
 
     if layout_mode == "grid4":
         grid_cols = 2
@@ -577,7 +545,7 @@ def gerar_ppt(
         grid_col_gap = int(slide_w * 0.03)
         grid_bottom_margin = int(slide_h * 0.12)
         grid_row_gap = int(slide_h * 0.04)
-        grid_total_h = slide_h - page_title_h - grid_bottom_margin
+        grid_total_h = slide_h - page_title_h - header_layout_gap_emu - grid_bottom_margin
         grid_panel_w = int((slide_w - (2 * grid_side_margin) - ((grid_cols - 1) * grid_col_gap)) / grid_cols)
         grid_panel_h = int((grid_total_h - ((grid_rows - 1) * grid_row_gap)) / grid_rows)
 
@@ -609,8 +577,13 @@ def gerar_ppt(
                 y = panel_top + row * (grid_panel_h + grid_row_gap)
                 _add_table_block(slide, tables_by_sheet[sheet_name], x, y, grid_panel_w, grid_panel_h, slide_h)
 
-        _add_requested_pies(prs, slide_w=slide_w, slide_h=slide_h, contagens_sim_nao=contagens_sim_nao)
-        _align_header_to_section_titles(prs, slide_w=slide_w)
+        _add_requested_pies(
+            prs,
+            slide_w=slide_w,
+            slide_h=slide_h,
+            contagens_sim_nao=contagens_sim_nao,
+            header_layout_gap_emu=header_layout_gap_emu,
+        )
         prs.save(arquivo_saida)
         return
 
@@ -618,7 +591,7 @@ def gerar_ppt(
     center_gap = int(slide_w * 0.03)
     panel_w = int((slide_w - (2 * outer_margin) - center_gap) / 2)
     bottom_margin = int(slide_h * 0.15)
-    panel_h = slide_h - page_title_h - bottom_margin
+    panel_h = slide_h - page_title_h - header_layout_gap_emu - bottom_margin
 
     i = 0
     while i < len(remaining_names):
@@ -647,6 +620,11 @@ def gerar_ppt(
             _add_table_block(slide, tables_by_sheet[right_name], right_x, panel_top, panel_w, panel_h, slide_h)
         i += 2 if right_name is not None else 1
 
-    _add_requested_pies(prs, slide_w=slide_w, slide_h=slide_h, contagens_sim_nao=contagens_sim_nao)
-    _align_header_to_section_titles(prs, slide_w=slide_w)
+    _add_requested_pies(
+        prs,
+        slide_w=slide_w,
+        slide_h=slide_h,
+        contagens_sim_nao=contagens_sim_nao,
+        header_layout_gap_emu=header_layout_gap_emu,
+    )
     prs.save(arquivo_saida)

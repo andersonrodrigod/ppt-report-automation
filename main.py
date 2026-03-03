@@ -37,6 +37,7 @@ def main() -> None:
     parser.add_argument("--tipo", default=None, help='Filtro na coluna TIPO (ex.: "VIDEO ABDOMINAL").')
     parser.add_argument("--layout", default="paired", choices=["paired", "grid4"], help="Layout dos slides.")
     parser.add_argument("--assets", default=str(base_dir / "assets"), help="Pasta de assets (logo.jpg e inicio.jpg).")
+    parser.add_argument("--header-gap", type=int, default=24, help="Espacamento em px entre cabecalho e layouts.")
     args = parser.parse_args()
 
     saida = executar(
@@ -46,6 +47,7 @@ def main() -> None:
         aba_origem=args.aba,
         tipo_filtro=args.tipo,
         layout_mode=args.layout,
+        header_layout_gap_px=args.header_gap,
     )
     print(f"Arquivo gerado: {saida}")
 

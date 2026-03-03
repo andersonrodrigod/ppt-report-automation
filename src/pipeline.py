@@ -13,6 +13,7 @@ def executar(
     aba_origem: str = "BASE",
     tipo_filtro: str | None = None,
     layout_mode: str = "paired",
+    header_layout_gap_px: int = 24,
 ) -> Path:
     ordered_names, tables_by_sheet = montar_tabelas_por_uf(
         arquivo_excel=arquivo_entrada,
@@ -36,5 +37,6 @@ def executar(
         assets_dir=assets_dir,
         layout_mode=layout_mode,
         contagens_sim_nao=contagens_sim_nao,
+        header_layout_gap_px=header_layout_gap_px,
     )
     return saida
