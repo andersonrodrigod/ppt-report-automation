@@ -86,7 +86,7 @@ def _set_slide_title(slide, text: str, slide_w: int, title_h: int, assets_dir: P
         inicio_path = assets_dir / "inicio.jpg"
 
     inicio_h = int(title_h * 0.70)
-    inicio_w = int(inicio_h * (159 / 681))
+    inicio_w = int(inicio_h * (100 / 681))
     inicio_x = side_margin
     inicio_y = int((title_h - inicio_h) / 2)
     if inicio_path.exists():
