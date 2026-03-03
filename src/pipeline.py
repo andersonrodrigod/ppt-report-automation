@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .data_processing import contar_respostas_sim_nao, montar_tabelas_por_uf
+from .data_processing import calcular_taxas_resposta, contar_respostas_sim_nao, montar_tabelas_por_uf
 from .ppt_renderer import gerar_ppt
 
 
@@ -26,6 +26,11 @@ def executar(
         tipo_filtro=tipo_filtro,
         colunas=("P1", "P3"),
     )
+    taxas_resposta = calcular_taxas_resposta(
+        arquivo_excel=arquivo_entrada,
+        aba_origem=aba_origem,
+        tipo_filtro=tipo_filtro,
+    )
 
     saida = Path(arquivo_saida)
     saida.parent.mkdir(parents=True, exist_ok=True)
@@ -37,6 +42,7 @@ def executar(
         assets_dir=assets_dir,
         layout_mode=layout_mode,
         contagens_sim_nao=contagens_sim_nao,
+        taxas_resposta=taxas_resposta,
         header_layout_gap_px=header_layout_gap_px,
     )
     return saida

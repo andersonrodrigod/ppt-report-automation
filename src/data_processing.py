@@ -164,6 +164,40 @@ def contar_respostas_sim_nao(
     return saida
 
 
+def calcular_taxas_resposta(
+    arquivo_excel: str,
+    aba_origem: str = "BASE",
+    tipo_filtro: str | None = None,
+) -> dict[str, int]:
+    df_base = pd.read_excel(arquivo_excel, sheet_name=aba_origem)
+
+    if tipo_filtro is not None:
+        if "TIPO" not in df_base.columns:
+            raise ValueError('A coluna "TIPO" nao foi encontrada na planilha BASE.')
+        tipo_norm = df_base["TIPO"].map(_normalizar_texto).map(_normalizar_sem_acento)
+        filtro_norm = _normalizar_sem_acento(tipo_filtro)
+        df_base = df_base[tipo_norm == filtro_norm].copy()
+
+    if "P1" not in df_base.columns:
+        raise ValueError('A coluna "P1" nao foi encontrada na planilha BASE.')
+    status_col = next((c for c in df_base.columns if str(c).strip().upper() == "STATUS"), None)
+    if status_col is None:
+        raise ValueError('A coluna "Status" nao foi encontrada na planilha BASE.')
+
+    p1_norm = df_base["P1"].map(_normalizar_texto).map(_normalizar_sem_acento)
+    status_norm = df_base[status_col].map(_normalizar_texto).map(_normalizar_sem_acento)
+
+    resposta = int(((p1_norm == "sim") | (p1_norm == "nao")).sum())
+    nqa = int((status_norm == "nao quis").sum())
+    nao_contato = int(((p1_norm == "") & (status_norm != "nao quis")).sum())
+
+    return {
+        "Resposta": resposta,
+        "NQA": nqa,
+        "Não conseguimos contato": nao_contato,
+    }
+
+
 def montar_tabelas_por_uf(
     arquivo_excel: str,
     aba_origem: str = "BASE",
@@ -212,4 +246,3 @@ def montar_tabelas_por_uf(
             ordered_names.append(nome_aba)
 
     return ordered_names, tables_by_sheet
-

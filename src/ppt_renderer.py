@@ -428,6 +428,133 @@ def _add_pie_block(
     slide.shapes.add_picture(image_buffer, block_left, block_top, width=block_w, height=block_h)
 
 
+def _render_taxas_resposta_pie_image(
+    values: list[int],
+    width_in: float,
+    height_in: float,
+    dpi: int = 220,
+) -> BytesIO:
+    labels = ["Resposta", "NQA", "Não conseguimos contato"]
+    colors = ["#2652B5", "#E64A36", "#ED862E"]
+    values = [int(v) for v in values]
+    total = sum(values)
+    if total <= 0:
+        values = [0, 0, 0]
+        total = 0
+
+    fig, ax = plt.subplots(figsize=(width_in, height_in), dpi=dpi)
+    fig.patch.set_facecolor("#FFFFFF")
+    ax.set_facecolor("#FFFFFF")
+
+    wedges, _texts = ax.pie(
+        values,
+        labels=None,
+        colors=colors,
+        startangle=90,
+        counterclock=False,
+        radius=0.86,
+        wedgeprops={"linewidth": 0.0},
+    )
+
+    for wedge, value in zip(wedges, values):
+        theta = (wedge.theta1 + wedge.theta2) / 2.0
+        x = float(math.cos(math.radians(theta)))
+        y = float(math.sin(math.radians(theta)))
+        label_x = 1.18 * x
+        label_y = 1.18 * y
+        pct = 0.0 if total == 0 else (value / total * 100.0)
+        text = f"{value} ({pct:.0f}%)"
+        ha = "left" if x >= 0 else "right"
+        ax.annotate(
+            text,
+            xy=(0.86 * x, 0.86 * y),
+            xytext=(label_x, label_y),
+            ha=ha,
+            va="center",
+            fontsize=12,
+            fontname="Calibri",
+            fontweight="bold",
+            color="#1A1A1A",
+            arrowprops={"arrowstyle": "-", "color": "#B3B3B3", "linewidth": 1.0},
+        )
+
+    ax.set_aspect("equal")
+    ax.legend(
+        wedges,
+        labels,
+        loc="lower center",
+        bbox_to_anchor=(0.5, -0.10),
+        ncol=3,
+        frameon=False,
+        handlelength=0.9,
+        handletextpad=0.3,
+        columnspacing=1.0,
+        prop={"family": "Calibri", "weight": "bold", "size": 12},
+    )
+
+    buffer = BytesIO()
+    fig.savefig(buffer, format="png", dpi=dpi, facecolor=fig.get_facecolor(), pad_inches=0)
+    plt.close(fig)
+    buffer.seek(0)
+    return buffer
+
+
+def _add_taxas_resposta_slide(
+    slide,
+    slide_w: int,
+    slide_h: int,
+    assets_dir: Path,
+    taxas_resposta: dict[str, int] | None,
+) -> None:
+    title_h = int(slide_h * 0.20)
+    _set_slide_title(slide, "TAXAS DE RESPOSTA", slide_w, title_h, assets_dir)
+
+    title_shape = None
+    for shape in slide.shapes:
+        if shape.shape_type == 17 and shape.has_text_frame and shape.text_frame.text.strip() == "TAXAS DE RESPOSTA":
+            title_shape = shape
+            break
+    if title_shape is None:
+        return
+
+    # Subheader: 10px below title and 3px spacing between lines.
+    sub_left = title_shape.left
+    sub_top = title_shape.top + title_shape.height + int(10 * EMU_PER_PX)
+    line_h = int(22 * EMU_PER_PX)
+    line_gap = int(3 * EMU_PER_PX)
+    sub_width = int(slide_w * 0.35)
+    sub_lines = ["Público alvo:", "Mês base:", "Período de coleta:"]
+    for idx, text in enumerate(sub_lines):
+        y = sub_top + idx * (line_h + line_gap)
+        box = slide.shapes.add_textbox(sub_left, y, sub_width, line_h)
+        tf = box.text_frame
+        tf.clear()
+        tf.margin_left = 0
+        tf.margin_right = 0
+        tf.margin_top = 0
+        tf.margin_bottom = 0
+        p = tf.paragraphs[0]
+        p.alignment = PP_ALIGN.LEFT
+        run = p.add_run()
+        run.text = text
+        run.font.bold = True
+        run.font.name = "Calibri"
+        run.font.size = Pt(12)
+        run.font.color.rgb = RGBColor(32, 56, 100)
+
+    pie_values = [
+        int((taxas_resposta or {}).get("Resposta", 0)),
+        int((taxas_resposta or {}).get("NQA", 0)),
+        int((taxas_resposta or {}).get("Não conseguimos contato", 0)),
+    ]
+    pie_top = sub_top + (len(sub_lines) * line_h) + ((len(sub_lines) - 1) * line_gap) + int(10 * EMU_PER_PX)
+    pie_w = int(slide_w * 0.58)
+    pie_h = max(1, int(slide_h - pie_top - int(slide_h * 0.08)))
+    pie_left = int((slide_w - pie_w) / 2)
+    img = _render_taxas_resposta_pie_image(pie_values, width_in=_emu_to_inches(pie_w), height_in=_emu_to_inches(pie_h))
+    slide.shapes.add_picture(img, pie_left, pie_top, width=pie_w, height=pie_h)
+
+
 def _add_requested_pies(
     prs: Presentation,
     slide_w: int,
@@ -489,6 +616,7 @@ def gerar_ppt(
     assets_dir: str,
     layout_mode: str = "paired",
     contagens_sim_nao: dict[str, dict[str, int]] | None = None,
+    taxas_resposta: dict[str, int] | None = None,
     header_layout_gap_px: int = DEFAULT_HEADER_LAYOUT_GAP_PX,
 ) -> None:
     assets_path = Path(assets_dir)
@@ -503,6 +631,13 @@ def gerar_ppt(
 
     prs.slides.add_slide(prs.slide_layouts[6])
     prs.slides.add_slide(prs.slide_layouts[6])
+    _add_taxas_resposta_slide(
+        prs.slides[1],
+        slide_w=slide_w,
+        slide_h=slide_h,
+        assets_dir=assets_path,
+        taxas_resposta=taxas_resposta,
+    )
 
     geral_slide = prs.slides.add_slide(prs.slide_layouts[6])
     top_title_h = int(slide_h * 0.20)
