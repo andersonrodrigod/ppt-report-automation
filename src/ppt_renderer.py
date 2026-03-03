@@ -89,15 +89,15 @@ def _set_slide_title(slide, text: str, slide_w: int, title_h: int, assets_dir: P
     inicio_h = int(title_h * 0.70)
     inicio_w = int(inicio_h * (100 / 681))
     inicio_x = side_margin
-    inicio_y = int((title_h - inicio_h) / 2)
+    inicio_y = int(70 * EMU_PER_PX)
     if inicio_path.exists():
         slide.shapes.add_picture(str(inicio_path), inicio_x, inicio_y, width=inicio_w, height=inicio_h)
 
     text_gap = int(20 * EMU_PER_PX)
     text_left = inicio_x + inicio_w + text_gap
-    text_top = int(title_h * 0.08)
+    text_top = int(90 * EMU_PER_PX)
     text_w = int(slide_w - text_left - side_margin - int(slide_w * 0.10))
-    text_h = int(title_h * 0.84)
+    text_h = int(title_h * 0.42)
     box = slide.shapes.add_textbox(text_left, text_top, text_w, text_h)
     tf = box.text_frame
     tf.clear()
