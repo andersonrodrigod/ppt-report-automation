@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 from .models import SheetTable
 
 EMU_PER_INCH = 914400
+EMU_PER_PX = 9525
 TITLE_P1 = "SINAIS DE COMPLICACAO | RESULTADO POR ESTADO"
 TITLE_P3 = "ORIENTACOES DO CUIDADO POS CIRURGICO | RESULTADO POR ESTADO"
 
@@ -263,26 +264,32 @@ def _add_table_block(
     slide_h: int,
     table_title_h: int | None = None,
 ) -> None:
-    title_h = table_title_h if table_title_h is not None else int(block_h * 0.20)
-    title_bottom_gap = int(block_h * 0.03)
+    title_h_for_layout = table_title_h if table_title_h is not None else int(block_h * 0.20)
+    title_bottom_gap_for_layout = int(block_h * 0.03)
 
-    title_box = slide.shapes.add_textbox(block_left, block_top, block_w, title_h)
+    row_count = len(table_data.rows) + 1
+    table_top = block_top + title_h_for_layout + title_bottom_gap_for_layout
+    available_table_h = max(1, block_h - title_h_for_layout - title_bottom_gap_for_layout)
+    table_h = _table_height_with_row_cap(available_table_h, row_count, slide_h)
+    table_top += int((available_table_h - table_h) / 2)
+
+    title_gap = int(12 * EMU_PER_PX)
+    title_h_visual = int(30 * EMU_PER_PX)
+    title_top = max(0, table_top - title_gap - title_h_visual)
+    title_box = slide.shapes.add_textbox(block_left, title_top, block_w, title_h_visual)
     tf = title_box.text_frame
     tf.clear()
+    tf.margin_left = int(5 * EMU_PER_PX)
+    tf.margin_right = 0
+    tf.margin_top = 0
+    tf.margin_bottom = 0
     p = tf.paragraphs[0]
-    p.alignment = PP_ALIGN.CENTER
+    p.alignment = PP_ALIGN.LEFT
     run = p.add_run()
     run.text = table_data.display_name
     run.font.bold = True
     run.font.color.rgb = RGBColor(31, 56, 100)
-    slide_points = _emu_to_inches(slide_h) * 72
-    run.font.size = Pt(slide_points * 0.022)
-
-    row_count = len(table_data.rows) + 1
-    table_top = block_top + title_h + title_bottom_gap
-    available_table_h = max(1, block_h - title_h - title_bottom_gap)
-    table_h = _table_height_with_row_cap(available_table_h, row_count, slide_h)
-    table_top += int((available_table_h - table_h) / 2)
+    run.font.size = Pt(20)
 
     width_in = _emu_to_inches(block_w)
     height_in = _emu_to_inches(table_h)
@@ -451,17 +458,9 @@ def _add_requested_pies(
             block_h=panel_h,
         )
         table_pic = None
-        text_to_remove = []
         for shape in slide.shapes:
-            if shape.shape_type == 17 and shape.has_text_frame:
-                if shape.text_frame.text.strip().upper() == "GERAL":
-                    text_to_remove.append(shape)
             if shape.shape_type == 13 and shape.left >= int(slide_w * 0.50):
                 table_pic = shape
-
-        for shape in text_to_remove:
-            sp = shape._element
-            sp.getparent().remove(sp)
 
         if table_pic is not None:
             table_pic.left = right_x
