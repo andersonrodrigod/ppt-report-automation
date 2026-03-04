@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Tuple
 import unicodedata
+import warnings
 
 import pandas as pd
 
@@ -42,6 +43,18 @@ def _display_name_from_sheet_name(sheet_name: str) -> str:
     if nome.upper().startswith("P1_") or nome.upper().startswith("P3_"):
         nome = nome[3:]
     return nome.replace("_", " ").strip() or sheet_name
+
+
+def _read_excel_base(arquivo_excel: str, aba_origem: str) -> pd.DataFrame:
+    # Alguns arquivos possuem células marcadas como data com serial inválido;
+    # isso é ruído de origem e não deve quebrar nem poluir a execução.
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=r"Cell .* is marked as a date but the serial value .* is outside the limits for dates.*",
+            category=UserWarning,
+        )
+        return pd.read_excel(arquivo_excel, sheet_name=aba_origem)
 
 
 def _calcular_indicadores_df(
@@ -142,7 +155,7 @@ def contar_respostas_sim_nao(
     tipo_filtro: str | None = None,
     colunas: tuple[str, ...] = ("P1", "P3"),
 ) -> dict[str, dict[str, int]]:
-    df_base = pd.read_excel(arquivo_excel, sheet_name=aba_origem)
+    df_base = _read_excel_base(arquivo_excel, aba_origem)
 
     if tipo_filtro is not None:
         if "TIPO" not in df_base.columns:
@@ -169,7 +182,7 @@ def calcular_taxas_resposta(
     aba_origem: str = "BASE",
     tipo_filtro: str | None = None,
 ) -> dict[str, int]:
-    df_base = pd.read_excel(arquivo_excel, sheet_name=aba_origem)
+    df_base = _read_excel_base(arquivo_excel, aba_origem)
 
     if tipo_filtro is not None:
         if "TIPO" not in df_base.columns:
@@ -203,7 +216,7 @@ def montar_tabelas_por_uf(
     aba_origem: str = "BASE",
     tipo_filtro: str | None = None,
 ) -> Tuple[list[str], dict[str, SheetTable]]:
-    df_base = pd.read_excel(arquivo_excel, sheet_name=aba_origem)
+    df_base = _read_excel_base(arquivo_excel, aba_origem)
 
     if "UF" not in df_base.columns:
         raise ValueError('A coluna "UF" nao foi encontrada na planilha BASE.')

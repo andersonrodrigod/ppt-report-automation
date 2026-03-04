@@ -30,6 +30,7 @@ def executar_run_cirurgia(
         tipo_filtro=None,
         layout_mode="paired",
         header_layout_gap_px=header_layout_gap_px,
+        align_table_to_pie=True,
     )
 
 
@@ -52,4 +53,5 @@ def executar_run_video(
         tipo_filtro="VIDEO ABDOMINAL",
         layout_mode="grid4",
         header_layout_gap_px=header_layout_gap_px,
+        align_table_to_pie=False,
     )

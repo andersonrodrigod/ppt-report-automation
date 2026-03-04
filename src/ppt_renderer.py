@@ -67,6 +67,15 @@ def _title_for_sheet(name: str) -> str:
     return TITLE_P3 if _is_p3_sheet(name) else TITLE_P1
 
 
+def _find_first_slide_number_by_title(prs: Presentation, title_text: str) -> int | None:
+    for idx, slide in enumerate(prs.slides):
+        for shape in slide.shapes:
+            if shape.shape_type == 17 and shape.has_text_frame:
+                if shape.text_frame.text.strip() == title_text:
+                    return idx + 1
+    return None
+
+
 def _find_primary_general_sheet(sheet_names: list[str]) -> str:
     if "GERAL" in sheet_names:
         return "GERAL"
@@ -566,6 +575,7 @@ def _add_requested_pies(
     slide_h: int,
     contagens_sim_nao: dict[str, dict[str, int]] | None,
     header_layout_gap_emu: int,
+    align_table_to_pie: bool = True,
 ) -> None:
     if not contagens_sim_nao:
         return
@@ -580,10 +590,13 @@ def _add_requested_pies(
     left_x = outer_margin
     right_x = outer_margin + panel_w + center_gap
 
-    pie_specs = [
-        (3, "P1", "P1. Você percebeu inchaço ou caroço no corte da cirurgia?"),
-        (15, "P3", "P3. Você recebeu orientações claras sobre os Cuidados após a cirurgia?"),
-    ]
+    p1_slide_number = _find_first_slide_number_by_title(prs, TITLE_P1)
+    p3_slide_number = _find_first_slide_number_by_title(prs, TITLE_P3)
+    pie_specs = []
+    if p1_slide_number is not None:
+        pie_specs.append((p1_slide_number, "P1", "P1. Você percebeu inchaço ou caroço no corte da cirurgia?"))
+    if p3_slide_number is not None:
+        pie_specs.append((p3_slide_number, "P3", "P3. Você recebeu orientações claras sobre os Cuidados após a cirurgia?"))
     for slide_number, coluna, titulo in pie_specs:
         idx = slide_number - 1
         if idx < 0 or idx >= len(prs.slides):
@@ -602,6 +615,9 @@ def _add_requested_pies(
             block_w=panel_w,
             block_h=panel_h,
         )
+        if not align_table_to_pie:
+            continue
+
         table_pic = None
         for shape in slide.shapes:
             if shape.shape_type == 13 and shape.left >= int(slide_w * 0.50):
@@ -623,6 +639,7 @@ def gerar_ppt(
     contagens_sim_nao: dict[str, dict[str, int]] | None = None,
     taxas_resposta: dict[str, int] | None = None,
     header_layout_gap_px: int = DEFAULT_HEADER_LAYOUT_GAP_PX,
+    align_table_to_pie: bool = True,
 ) -> None:
     assets_path = Path(assets_dir)
     primary_general = _find_primary_general_sheet(ordered_names)
@@ -723,6 +740,7 @@ def gerar_ppt(
             slide_h=slide_h,
             contagens_sim_nao=contagens_sim_nao,
             header_layout_gap_emu=header_layout_gap_emu,
+            align_table_to_pie=align_table_to_pie,
         )
         prs.save(arquivo_saida)
         return
@@ -766,5 +784,7 @@ def gerar_ppt(
         slide_h=slide_h,
         contagens_sim_nao=contagens_sim_nao,
         header_layout_gap_emu=header_layout_gap_emu,
+        align_table_to_pie=align_table_to_pie,
     )
     prs.save(arquivo_saida)
+

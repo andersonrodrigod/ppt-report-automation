@@ -14,6 +14,7 @@ def executar(
     tipo_filtro: str | None = None,
     layout_mode: str = "paired",
     header_layout_gap_px: int = 24,
+    align_table_to_pie: bool = True,
 ) -> Path:
     ordered_names, tables_by_sheet = montar_tabelas_por_uf(
         arquivo_excel=arquivo_entrada,
@@ -44,5 +45,6 @@ def executar(
         contagens_sim_nao=contagens_sim_nao,
         taxas_resposta=taxas_resposta,
         header_layout_gap_px=header_layout_gap_px,
+        align_table_to_pie=align_table_to_pie,
     )
     return saida
