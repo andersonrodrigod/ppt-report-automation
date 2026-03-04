@@ -324,16 +324,14 @@ def _render_pie_image(
     colors = ["#2652B5", "#E64A36"]
 
     total = sum(values)
-    if total <= 0:
-        values = [0, 0]
-        total = 0
+    plot_values = values if total > 0 else [1, 1]
 
     fig, ax = plt.subplots(figsize=(width_in, height_in), dpi=dpi)
     fig.patch.set_facecolor("#FFFFFF")
     ax.set_facecolor("#FFFFFF")
 
     wedges, _texts = ax.pie(
-        values,
+        plot_values,
         labels=None,
         colors=colors,
         startangle=90,
@@ -441,16 +439,14 @@ def _render_taxas_resposta_pie_image(
     colors = ["#2652B5", "#E64A36", "#ED862E"]
     values = [int(v) for v in values]
     total = sum(values)
-    if total <= 0:
-        values = [0, 0, 0]
-        total = 0
+    plot_values = values if total > 0 else [1, 1, 1]
 
     fig, ax = plt.subplots(figsize=(width_in, height_in), dpi=dpi)
     fig.patch.set_facecolor("#FFFFFF")
     ax.set_facecolor("#FFFFFF")
 
     wedges, _texts = ax.pie(
-        values,
+        plot_values,
         labels=None,
         colors=colors,
         startangle=90,
