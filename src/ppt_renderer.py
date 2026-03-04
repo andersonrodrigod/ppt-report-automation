@@ -230,10 +230,12 @@ def _render_table_image(
         txt.set_linespacing(1.0)
         txt.set_va("center")
         txt.set_wrap(False)
-        if r == 0 or c == 0:
-            txt.set_fontsize(max(2.6, table_font_size * 0.86))
+        if r == 0:
+            txt.set_fontsize(max(2.6, table_font_size * 0.86 + 2))
+        elif c == 0:
+            txt.set_fontsize(max(2.6, table_font_size * 0.86 + 3))
         else:
-            txt.set_fontsize(table_font_size)
+            txt.set_fontsize(table_font_size + 3)
 
         if r == 0:
             cell.set_facecolor(blue)
@@ -374,13 +376,14 @@ def _render_pie_image(
         zorder=3,
     )
     fig.add_artist(title_band)
+    title_fontsize = 14 if title.strip().upper().startswith("P3.") else 15
     fig.text(
         0.02,
         0.955,
         title,
         ha="left",
         va="center",
-        fontsize=15,
+        fontsize=title_fontsize,
         fontname="Calibri",
         fontweight="bold",
         color="#FFFFFF",
@@ -452,7 +455,7 @@ def _render_taxas_resposta_pie_image(
         colors=colors,
         startangle=90,
         counterclock=False,
-        radius=0.86,
+        radius=0.98,
         wedgeprops={"linewidth": 0.0},
     )
 
@@ -460,14 +463,14 @@ def _render_taxas_resposta_pie_image(
         theta = (wedge.theta1 + wedge.theta2) / 2.0
         x = float(math.cos(math.radians(theta)))
         y = float(math.sin(math.radians(theta)))
-        label_x = 1.18 * x
-        label_y = 1.18 * y
+        label_x = 1.22 * x
+        label_y = 1.22 * y
         pct = 0.0 if total == 0 else (value / total * 100.0)
         text = f"{value} ({pct:.0f}%)"
         ha = "left" if x >= 0 else "right"
         ax.annotate(
             text,
-            xy=(0.86 * x, 0.86 * y),
+            xy=(0.98 * x, 0.98 * y),
             xytext=(label_x, label_y),
             ha=ha,
             va="center",
@@ -510,18 +513,24 @@ def _add_taxas_resposta_slide(
     _set_slide_title(slide, "TAXAS DE RESPOSTA", slide_w, title_h, assets_dir)
 
     title_shape = None
+    inicio_shape = None
     for shape in slide.shapes:
+        if (
+            shape.shape_type == 13
+            and shape.left <= int(slide_w * 0.08)
+            and shape.width <= int(slide_w * 0.05)
+        ):
+            inicio_shape = shape
         if shape.shape_type == 17 and shape.has_text_frame and shape.text_frame.text.strip() == "TAXAS DE RESPOSTA":
             title_shape = shape
-            break
-    if title_shape is None:
+    if title_shape is None or inicio_shape is None:
         return
 
-    # Subheader: 10px below title and 3px spacing between lines.
-    sub_left = title_shape.left
-    sub_top = title_shape.top + title_shape.height + int(10 * EMU_PER_PX)
+    # Subheader: 10px below inicio image and 1px spacing between lines.
+    sub_left = max(0, int(inicio_shape.left - int(3 * EMU_PER_PX)))
+    sub_top = int(inicio_shape.top + inicio_shape.height + int(10 * EMU_PER_PX))
     line_h = int(22 * EMU_PER_PX)
-    line_gap = int(3 * EMU_PER_PX)
+    line_gap = int(1 * EMU_PER_PX)
     sub_width = int(slide_w * 0.35)
     sub_lines = ["Público alvo:", "Mês base:", "Período de coleta:"]
     for idx, text in enumerate(sub_lines):
@@ -548,8 +557,8 @@ def _add_taxas_resposta_slide(
         int((taxas_resposta or {}).get("Não conseguimos contato", 0)),
     ]
     pie_top = sub_top + (len(sub_lines) * line_h) + ((len(sub_lines) - 1) * line_gap) + int(10 * EMU_PER_PX)
-    pie_w = int(slide_w * 0.58)
-    pie_h = max(1, int(slide_h - pie_top - int(slide_h * 0.08)))
+    pie_w = int(slide_w * 0.50)
+    pie_h = max(1, int(slide_h - pie_top - int(slide_h * 0.12)))
     pie_left = int((slide_w - pie_w) / 2)
     img = _render_taxas_resposta_pie_image(pie_values, width_in=_emu_to_inches(pie_w), height_in=_emu_to_inches(pie_h))
     slide.shapes.add_picture(img, pie_left, pie_top, width=pie_w, height=pie_h)
@@ -577,7 +586,7 @@ def _add_requested_pies(
 
     pie_specs = [
         (3, "P1", "P1. Você percebeu inchaço ou caroço no corte da cirurgia?"),
-        (15, "P3", "P3"),
+        (15, "P3", "P3. Você recebeu orientações claras sobre os Cuidados após a cirurgia?"),
     ]
     for slide_number, coluna, titulo in pie_specs:
         idx = slide_number - 1
