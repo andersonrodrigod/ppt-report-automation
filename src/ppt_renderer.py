@@ -45,8 +45,6 @@ def _as_text(value: object, header: str) -> str:
     )
     if isinstance(value, (int, float)) and is_percent_col:
         num = float(value)
-        if abs(num) <= 1:
-            num *= 100
         return f"{num:.1f}%"
     if isinstance(value, int):
         return f"{value:,}".replace(",", ".")
